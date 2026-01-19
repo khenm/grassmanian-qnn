@@ -1,0 +1,9 @@
+name: "IndianPines"
+root_dir: "content/drive/MyDrive/Dataset/IP"
+data_file: "Indian_pines_corrected.mat"
+gt_file: "Indian_pines_gt.mat"
+patch_size: 5
+batch_size: 64
+spectral_bands: 200
+train_split: 0.8
+components: 30

@@ -1,0 +1,8 @@
+name: "HyspecNet1k"
+tar_dir: "/content/drive/MyDrive/Dataset/hyspecnet"
+root_dir: "/content/hyspecnet1k"
+patch_size: 5
+batch_size: 64
+spectral_bands: 200
+train_split: 0.8
+components: 30
