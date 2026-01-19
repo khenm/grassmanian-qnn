@@ -1,6 +1,6 @@
 name: "HyspecNet1k"
 tar_dir: "/content/drive/MyDrive/Dataset/hyspecnet"
-root_dir: "/content/hyspecnet1k"
+root_dir: "/content"
 patch_size: 5
 batch_size: 64
 spectral_bands: 200
