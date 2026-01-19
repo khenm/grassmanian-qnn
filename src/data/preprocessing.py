@@ -25,18 +25,14 @@ def process_patch(patch_3d: torch.Tensor, n_components: int = 3) -> torch.Tensor
         torch.Tensor: Orthonormal basis of the subspace (U_init) with shape (H*W, n_components).
                       This represents the spatial subspace.
     """
-    # Flatten spatial dimensions: (H, W, D) -> (H*W, D)
     X = rearrange(patch_3d, 'h w d -> (h w) d')
     
-    # Compute SVD to obtain principal components
     # We use full_matrices=False for efficiency
     U, S, V = torch.linalg.svd(X, full_matrices=False)
     
-    # Ensure we have enough pixels for the requested components
     if U.shape[1] < n_components:
         raise ValueError(f"Patch pixels ({U.shape[1]}) fewer than requested components ({n_components}). Increase patch size.")
         
-    # Keep the top K principal components to form the subspace basis
     U_init = U[:, :n_components] 
     
 
@@ -50,19 +46,15 @@ def convert_patch(patch_path: str) -> None:
         patch_path (str): Path to the SPECTRAL_IMAGE.TIF file.
     """
     try:
-        # load patch
         with rasterio.open(patch_path) as dataset:
-            # remove nodata channels
             src = dataset.read(VALID_CHANNELS_IDS)
             
-        # clip data to remove uncertainties
         clipped = np.clip(src, a_min=MINIMUM_VALUE, a_max=MAXIMUM_VALUE)
         
-        # min-max normalization
+        # Normalize to [0, 1]
         out_data = (clipped - MINIMUM_VALUE) / (MAXIMUM_VALUE - MINIMUM_VALUE)
         out_data = out_data.astype(np.float32)
         
-        # save npy
         out_path = patch_path.replace("SPECTRAL_IMAGE", "DATA").replace("TIF", "npy")
         np.save(out_path, out_data)
         
@@ -78,7 +70,6 @@ def generate_hyspecnet_data(in_directory: str = "./hyspecnet-11k/patches/", num_
         in_directory (str): Root directory of the patches.
         num_workers (int): Number of multiprocessing workers.
     """
-    # Ensure directory path ends with slash
     if not in_directory.endswith("/"):
         in_directory += "/"
         
@@ -120,7 +111,6 @@ def unzip_all(tar_dir: str, out_dir: str, file_name: str = "SPECTRAL_IMAGE.TIF",
 
     print(f"Found {len(tar_files)} tar files. Processing with {num_workers} workers...")
     
-    # Prepare arguments for starmap
     args_list = [(tar_path, file_name, out_dir) for tar_path in tar_files]
     
     with multiprocessing.Pool(num_workers) as pool:
@@ -140,9 +130,25 @@ def unzip_single_file(tar_path: str, file_name: str, out_dir: str) -> None:
     """
     try:
         with tarfile.open(tar_path, "r") as tar:
-            member = tar.getmember(file_name)
-            tar.extract(member, path=out_dir)
-        print(f"Successfully extracted {file_name} from {tar_path} to {out_dir}")
+            target_member = None
+            
+            try:
+                target_member = tar.getmember(file_name)
+            except KeyError:
+                # Search recursively if not found at root
+                for member in tar.getmembers():
+                    if member.name.endswith(file_name):
+                        target_member = member
+                        break
+            
+            if target_member:
+                tar.extract(target_member, path=out_dir)
+                print(f"Successfully extracted {target_member.name} from {tar_path}")
+            else:
+                print(f"Warning: {file_name} not found in {tar_path}")
+
+    except tarfile.ReadError:
+        print(f"CRITICAL ERROR: Corrupted tar file {tar_path}. Please re-download this file.")
     except Exception as e:
         print(f"Error extracting {file_name} from {tar_path}: {e}")
 
@@ -164,19 +170,13 @@ def prepare_hyspecnet_data(tar_dir: str, root_dir: str, num_workers: int = 64) -
     print(f"Source Tars: {tar_dir}")
     print(f"Target Root: {root_dir}")
     
-    # 1. Unzip relevant files (Spectral Image AND Quality Classes)
+    # 1. Unzip relevant files
     print("\n[Step 1/2] Extracting TIF files...")
-    # We need both the data and the label (Quality Classes)
     unzip_all(tar_dir, root_dir, file_name="SPECTRAL_IMAGE.TIF", num_workers=num_workers)
     unzip_all(tar_dir, root_dir, file_name="QL_QUALITY_CLASSES.TIF", num_workers=num_workers)
     
     # 2. Convert Data
     print("\n[Step 2/2] Converting Spectral Images to NPY...")
-    # This acts on the extracted files in root_dir
-    # Note: generate_hyspecnet_data was defined to take input directory.
-    # We should point it to root_dir where we just extracted things.
-    # However, existing generate_hyspecnet_data defaults to "./hyspecnet-11k/patches/"
-    # We must pass root_dir.
     generate_hyspecnet_data(in_directory=root_dir, num_workers=num_workers)
     
     print("\n=== Data Preparation Complete ===")
