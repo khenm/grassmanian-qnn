@@ -30,7 +30,7 @@ def load_config(config_path: str, cli_options: list = None) -> DictConfig:
     valid_groups = set()
     if defaults:
         for item in defaults:
-            if isinstance(item, dict):
+            if isinstance(item, (dict, DictConfig)):
                 valid_groups.update(item.keys())
 
     # 2. Separate CLI overrides into group switches vs normal overrides
@@ -57,7 +57,7 @@ def load_config(config_path: str, cli_options: list = None) -> DictConfig:
                 if 'defaults' in main_content:
                     del main_content['defaults']
                 final_cfg = OmegaConf.merge(final_cfg, main_content)
-            elif isinstance(item, dict):
+            elif isinstance(item, (dict, DictConfig)):
                 for group, default_name in item.items():
                     # Construct path: conf/group/name.yaml
                     # Use override if present, else default
