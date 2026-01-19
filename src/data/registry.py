@@ -4,7 +4,7 @@ from typing import Dict, Type, Any
 
 class HSIDatasetConfig(BaseModel):
     name: str
-    data_path: str
+    data_path: str = ""
     gt_path: str = ""
     patch_size: int = 5
     batch_size: int = 64
