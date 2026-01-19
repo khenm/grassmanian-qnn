@@ -25,8 +25,28 @@ def load_config(config_path: str, cli_options: list = None) -> DictConfig:
     final_cfg = OmegaConf.create()
     
     conf_dir = os.path.dirname(config_path)
+
+    # 1. Identify valid config groups from defaults
+    valid_groups = set()
+    if defaults:
+        for item in defaults:
+            if isinstance(item, dict):
+                valid_groups.update(item.keys())
+
+    # 2. Separate CLI overrides into group switches vs normal overrides
+    group_overrides = {}
+    remaining_cli_opts = []
     
-    # If no defaults, just returns base_conf
+    if cli_options:
+        for opt in cli_options:
+            if '=' in opt:
+                key, val = opt.split('=', 1)
+                if key in valid_groups:
+                    group_overrides[key] = val
+                    continue
+            remaining_cli_opts.append(opt)
+    
+    # 3. Load defaults (respecting group overrides)
     if not defaults:
         final_cfg = base_conf
     else:
@@ -34,11 +54,15 @@ def load_config(config_path: str, cli_options: list = None) -> DictConfig:
             if item == "_self_":
                 # Merge the content of the main config (excluding 'defaults')
                 main_content = OmegaConf.merge(base_conf)
-                del main_content['defaults']
+                if 'defaults' in main_content:
+                    del main_content['defaults']
                 final_cfg = OmegaConf.merge(final_cfg, main_content)
             elif isinstance(item, dict):
-                for group, name in item.items():
+                for group, default_name in item.items():
                     # Construct path: conf/group/name.yaml
+                    # Use override if present, else default
+                    name = group_overrides.get(group, default_name)
+                    
                     sub_config_path = os.path.join(conf_dir, group, f"{name}.yaml")
                     if os.path.exists(sub_config_path):
                         sub_conf = OmegaConf.load(sub_config_path)
@@ -48,9 +72,9 @@ def load_config(config_path: str, cli_options: list = None) -> DictConfig:
                     else:
                         print(f"Warning: Config file not found: {sub_config_path}")
     
-    # Apply CLI overrides (dotlist format e.g. ["dataset.batch_size=32"])
-    if cli_options:
-        cli_conf = OmegaConf.from_dotlist(cli_options)
+    # 4. Apply remaining CLI overrides (dotlist format e.g. ["dataset.batch_size=32"])
+    if remaining_cli_opts:
+        cli_conf = OmegaConf.from_dotlist(remaining_cli_opts)
         final_cfg = OmegaConf.merge(final_cfg, cli_conf)
         
     return final_cfg
