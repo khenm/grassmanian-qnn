@@ -1,0 +1,7 @@
+name: "grnet_quantum"
+stiefel_n: 4
+stiefel_p: 3
+governor_dim: 16
+quantum_layers: 1
+quantum_wires: 3
+force_cpu: false
